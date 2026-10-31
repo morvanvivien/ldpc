@@ -4,13 +4,19 @@ on:
     branches: [verify-fix-105]
 jobs:
   python:
-    name: python ${{ matrix.variant }}
+    name: python ${{ matrix.variant }} asserts ${{ matrix.asserts }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         variant: [main, pr112, fix, both]
+        asserts: ["on"]
+        include:
+          - variant: main
+            asserts: "off"
+          - variant: both
+            asserts: "off"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,13 +26,14 @@ jobs:
           python-version: "3.12"
       - name: Apply variant
         run: bash verify/apply.sh ${{ matrix.variant }}
-      - name: Build with libstdc++ bounds checks
-        env:
-          CFLAGS: -D_GLIBCXX_ASSERTIONS
-          CXXFLAGS: -D_GLIBCXX_ASSERTIONS
-        run: python -m pip install -q . pytest
+      - name: Build
+        run: |
+          if [ "${{ matrix.asserts }}" = "on" ]; then
+            export CFLAGS=-D_GLIBCXX_ASSERTIONS CXXFLAGS=-D_GLIBCXX_ASSERTIONS
+          fi
+          python -m pip install -q . pytest
       - name: Run
-        run: bash verify/run_python.sh ${{ matrix.variant }}
+        run: bash verify/run_python.sh ${{ matrix.variant }} ${{ matrix.asserts }}
   harness:
     name: C++ driver
     runs-on: ubuntu-latest
